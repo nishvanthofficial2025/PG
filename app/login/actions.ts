@@ -3,52 +3,58 @@
 import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { get, run } from "@/lib/db";
+import { get, run, demoMode } from "@/lib/db";
 import { createSession, destroySession } from "@/lib/auth";
+import { sign, verify, keyedHash, OTP_COOKIE, type PendingOtp } from "@/lib/signed";
 import { normalizePhone } from "@/lib/format";
 import { sendOtp } from "@/lib/notify";
 import { str } from "@/lib/action";
 
-const PENDING = "se_login_phone";
+/*
+ * The OTP step lives in a signed cookie (phone + keyed hash of the code +
+ * attempt count), so request and verify can land on different servers.
+ * TODO once SMS is live: also rate-limit per phone in the shared DB / Redis.
+ */
+const PENDING = OTP_COOKIE;
 const SIGNUP = "se_signup";
+const OTP_TTL = 10 * 60;
+const MAX_ATTEMPTS = 5;
+
+const cookieOpts = (maxAge: number) => ({ httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", maxAge, path: "/" });
 
 export async function requestOtp(fd: FormData) {
   const phone = normalizePhone(str(fd, "phone"));
   if (!/^[6-9]\d{9}$/.test(phone)) redirect("/login?err=" + encodeURIComponent("Enter a valid 10-digit mobile number"));
   const code = String(crypto.randomInt(100000, 1000000));
-  await run(
-    `INSERT INTO otps (phone, code, attempts, expires_at) VALUES (?, ?, 0, ?)
-     ON CONFLICT(phone) DO UPDATE SET code = excluded.code, attempts = 0, expires_at = excluded.expires_at`,
-    phone,
-    code,
-    new Date(Date.now() + 10 * 60_000).toISOString(),
-  );
   sendOtp(phone, code);
-  (await cookies()).set(PENDING, phone, { httpOnly: true, sameSite: "lax", maxAge: 600, path: "/" });
+  const pending: PendingOtp = { p: phone, h: keyedHash(phone + ":" + code), a: 0 };
+  if (demoMode()) pending.c = code; // shown on screen until an SMS provider is connected
+  (await cookies()).set(PENDING, sign(pending, OTP_TTL), cookieOpts(OTP_TTL));
   redirect("/login?step=otp");
 }
 
 export async function verifyOtp(fd: FormData) {
   const jar = await cookies();
-  const phone = jar.get(PENDING)?.value;
-  if (!phone) redirect("/login");
+  const pending = verify<PendingOtp>(jar.get(PENDING)?.value);
+  if (!pending) redirect("/login?err=" + encodeURIComponent("OTP expired. Please request a new one."));
+  if (pending.a >= MAX_ATTEMPTS) {
+    jar.delete(PENDING);
+    redirect("/login?err=" + encodeURIComponent("Too many attempts. Request a new OTP."));
+  }
   const code = str(fd, "code");
-  const row = await get<{ code: string; attempts: number; expires_at: string }>("SELECT * FROM otps WHERE phone = ?", phone);
-  if (!row || row.expires_at < new Date().toISOString()) redirect("/login?err=" + encodeURIComponent("OTP expired. Please request a new one."));
-  if (row.attempts >= 5) redirect("/login?err=" + encodeURIComponent("Too many attempts. Request a new OTP."));
-  if (row.code !== code) {
-    await run("UPDATE otps SET attempts = attempts + 1 WHERE phone = ?", phone);
+  if (keyedHash(pending.p + ":" + code) !== pending.h) {
+    const { exp, ...rest } = pending;
+    const left = Math.max(1, Math.round((exp - Date.now()) / 1000));
+    jar.set(PENDING, sign({ ...rest, a: pending.a + 1 }, left), cookieOpts(left));
     redirect("/login?step=otp&err=" + encodeURIComponent("Wrong OTP, try again"));
   }
-  await run("DELETE FROM otps WHERE phone = ?", phone);
   jar.delete(PENDING);
+  const phone = pending.p;
 
   const user = await get<{ id: number; role: string; status: string }>("SELECT id, role, status FROM users WHERE phone = ?", phone);
   if (!user) {
     // New number → owner sign-up (residents are always invited by an owner).
-    const token = crypto.randomBytes(24).toString("hex");
-    await run("INSERT INTO otps (phone, code, expires_at) VALUES (?, ?, ?)", phone, "signup:" + token, new Date(Date.now() + 15 * 60_000).toISOString());
-    jar.set(SIGNUP, token, { httpOnly: true, sameSite: "lax", maxAge: 900, path: "/" });
+    jar.set(SIGNUP, sign({ p: phone }, 15 * 60), cookieOpts(15 * 60));
     redirect("/signup");
   }
   await createSession(user.id);
@@ -58,18 +64,17 @@ export async function verifyOtp(fd: FormData) {
 
 export async function completeSignup(fd: FormData) {
   const jar = await cookies();
-  const token = jar.get(SIGNUP)?.value;
-  const row = token ? await get<{ phone: string; expires_at: string }>("SELECT phone, expires_at FROM otps WHERE code = ?", "signup:" + token) : undefined;
-  if (!row || row.expires_at < new Date().toISOString()) redirect("/login?err=" + encodeURIComponent("Session expired, please log in again"));
+  const signup = verify<{ p: string }>(jar.get(SIGNUP)?.value);
+  if (!signup) redirect("/login?err=" + encodeURIComponent("Session expired, please log in again"));
   const name = str(fd, "name");
   const business = str(fd, "business_name");
   if (!name || !fd.get("consent")) redirect("/signup?err=" + encodeURIComponent("Enter your name and accept the privacy terms"));
-  const id = (await run("INSERT INTO users (name, phone, role, business_name) VALUES (?, ?, 'owner', ?)", name, row.phone, business || null)).id;
-  await run("UPDATE users SET owner_id = id WHERE id = ?", id);
-  await run("DELETE FROM otps WHERE phone = ?", row.phone);
+  const existing = await get<{ id: number }>("SELECT id FROM users WHERE phone = ?", signup.p);
+  const id = existing?.id ?? (await run("INSERT INTO users (name, phone, role, business_name) VALUES (?, ?, 'owner', ?)", name, signup.p, business || null)).id;
+  if (!existing) await run("UPDATE users SET owner_id = id WHERE id = ?", id);
   jar.delete(SIGNUP);
   await createSession(id);
-  redirect("/owner/properties/new?first=1");
+  redirect(existing ? "/" : "/owner/properties/new?first=1");
 }
 
 export async function logout() {

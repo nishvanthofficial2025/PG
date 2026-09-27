@@ -1,8 +1,8 @@
 import "server-only";
-import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { all, get, run } from "./db";
+import { all, get } from "./db";
+import { sign, verify } from "./signed";
 
 export type User = {
   id: number;
@@ -18,31 +18,31 @@ export type User = {
 const COOKIE = "se_session";
 const SESSION_DAYS = 30;
 
+/** Signed, stateless session cookie — valid on every server instance. */
 export async function createSession(userId: number) {
-  const token = crypto.randomBytes(32).toString("hex");
-  const expires = new Date(Date.now() + SESSION_DAYS * 86_400_000);
-  await run("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)", token, userId, expires.toISOString());
-  (await cookies()).set(COOKIE, token, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", expires, path: "/" });
+  const token = sign({ u: userId }, SESSION_DAYS * 86_400);
+  (await cookies()).set(COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: SESSION_DAYS * 86_400,
+    path: "/",
+  });
 }
 
 export async function destroySession() {
-  const jar = await cookies();
-  const token = jar.get(COOKIE)?.value;
-  if (token) await run("DELETE FROM sessions WHERE token = ?", token);
-  jar.delete(COOKIE);
+  (await cookies()).delete(COOKIE);
 }
 
 export async function currentUser(): Promise<User | null> {
-  const token = (await cookies()).get(COOKIE)?.value;
-  if (!token) return null;
+  const s = verify<{ u: number }>((await cookies()).get(COOKIE)?.value);
+  if (!s) return null;
+  // Removed managers are marked 'disabled', which ends their session here.
   return (
-    await get<User>(
-      `SELECT u.id, u.owner_id, u.name, u.phone, u.email, u.role, u.status, u.business_name
-       FROM sessions s JOIN users u ON u.id = s.user_id
-       WHERE s.token = ? AND s.expires_at > ? AND u.status != 'disabled'`,
-      token,
-      new Date().toISOString(),
-    ) ?? null
+    (await get<User>(
+      "SELECT id, owner_id, name, phone, email, role, status, business_name FROM users WHERE id = ? AND status != 'disabled'",
+      s.u,
+    )) ?? null
   );
 }
 

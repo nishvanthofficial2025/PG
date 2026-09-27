@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { get, demoMode } from "@/lib/db";
+import { demoMode } from "@/lib/db";
+import { verify, OTP_COOKIE, type PendingOtp } from "@/lib/signed";
 import { currentUser } from "@/lib/auth";
 import { Submit } from "@/components/client";
 import { Flash } from "@/components/ui";
@@ -15,10 +16,11 @@ const DEMO = [
 export default async function Login({ searchParams }: { searchParams: Promise<{ step?: string; err?: string }> }) {
   const sp = await searchParams;
   if (await currentUser()) redirect("/");
-  const phone = (await cookies()).get("se_login_phone")?.value;
+  const pending = verify<PendingOtp>((await cookies()).get(OTP_COOKIE)?.value);
+  const phone = pending?.p;
   const otpStep = sp.step === "otp" && phone;
   const dev = demoMode();
-  const devCode = otpStep && dev ? (await get<{ code: string }>("SELECT code FROM otps WHERE phone = ?", phone))?.code : null;
+  const devCode = otpStep && dev ? pending?.c : null;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-10">
