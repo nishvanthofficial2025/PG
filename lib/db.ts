@@ -302,7 +302,7 @@ function driver(): Promise<Driver> {
 
 /** Demo mode: seed sample data and show OTPs on screen (no SMS provider yet). */
 export function demoMode() {
-  return process.env.NODE_ENV !== "production" || process.env.DEMO_MODE === "1";
+  return process.env.NODE_ENV !== "production" || ["1", "true"].includes((process.env.DEMO_MODE ?? "").trim().toLowerCase());
 }
 
 /** "?" → $1, $2 …, datetime('now') → NOW_SQL, and INSERTs return the new row. */
