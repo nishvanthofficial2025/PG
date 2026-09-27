@@ -265,9 +265,13 @@ async function pgDriver(url: string): Promise<Driver> {
 
 async function pgliteDriver(): Promise<Driver> {
   const { PGlite } = await import("@electric-sql/pglite");
-  (await import("node:fs")).mkdirSync(DATA_DIR, { recursive: true });
+  // On Vercel without DATABASE_URL only /tmp is writable: a throwaway demo database
+  // that resets whenever the instance is recycled. Add Neon for persistent data.
+  const dir = process.env.VERCEL ? "/tmp/stayeasy-pglite" : path.join(DATA_DIR, "pglite");
+  (await import("node:fs")).mkdirSync(path.dirname(dir), { recursive: true });
+  if (process.env.VERCEL) console.warn("[db] DATABASE_URL not set — using temporary PGlite in /tmp (data will reset)");
   const num = (v: string) => Number(v);
-  const db = await PGlite.create(path.join(DATA_DIR, "pglite"), { parsers: { 20: num, 1700: num } });
+  const db = await PGlite.create(dir, { parsers: { 20: num, 1700: num } });
   const query: Query = async (sql, params) => (await db.query<Row>(sql, params as any[])).rows;
   return {
     query,
