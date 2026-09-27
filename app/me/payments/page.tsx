@@ -10,13 +10,13 @@ import { uploadProofAction } from "../actions";
 export default async function Payments({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   const sp = await searchParams;
   const u = await requireResident();
-  const stay = myStay(u.id);
-  const payments = all<{ id: number; amount: number; mode: string; paid_at: string; receipt_no: string | null; status: string; month: string }>(
+  const stay = await myStay(u.id);
+  const payments = await all<{ id: number; amount: number; mode: string; paid_at: string; receipt_no: string | null; status: string; month: string }>(
     `SELECT p.id, p.amount, p.mode, p.paid_at, p.receipt_no, p.status, i.month FROM payments p JOIN invoices i ON i.id = p.invoice_id JOIN stays s ON s.id = i.stay_id
      WHERE s.resident_id = ? ORDER BY p.paid_at DESC`,
     u.id,
   );
-  const unpaid = all<{ id: number; month: string; due: number }>(
+  const unpaid = await all<{ id: number; month: string; due: number }>(
     "SELECT i.id, i.month, i.total - i.paid due FROM invoices i JOIN stays s ON s.id = i.stay_id WHERE s.resident_id = ? AND i.status != 'paid' ORDER BY i.month",
     u.id,
   );

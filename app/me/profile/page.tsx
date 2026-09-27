@@ -12,12 +12,12 @@ const DOC_TYPES: Record<string, string> = { aadhaar: "Aadhaar", pan: "PAN", pass
 export default async function Profile({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   const sp = await searchParams;
   const u = await requireResident();
-  const stay = myStay(u.id);
-  const p = get<{ emergency_name: string | null; emergency_phone: string | null; occupation: string | null; college_company: string | null; permanent_address: string | null; rules_accepted_at: string | null }>(
+  const stay = await myStay(u.id);
+  const p = await get<{ emergency_name: string | null; emergency_phone: string | null; occupation: string | null; college_company: string | null; permanent_address: string | null; rules_accepted_at: string | null }>(
     "SELECT * FROM resident_profiles WHERE user_id = ?",
     u.id,
   );
-  const docs = all<{ id: number; type: string; file_id: string; verified: number }>("SELECT * FROM documents WHERE resident_id = ? ORDER BY id DESC", u.id);
+  const docs = await all<{ id: number; type: string; file_id: string; verified: number }>("SELECT * FROM documents WHERE resident_id = ? ORDER BY id DESC", u.id);
   const ro = u.status === "read_only";
 
   return (

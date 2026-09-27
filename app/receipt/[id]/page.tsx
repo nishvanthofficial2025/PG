@@ -10,7 +10,7 @@ export default async function Receipt({ params }: { params: Promise<{ id: string
   const { id } = await params;
   const u = await currentUser();
   if (!u) redirect("/login");
-  const p = get<{
+  const p = await get<{
     id: number; amount: number; mode: string; reference: string | null; paid_at: string; receipt_no: string; invoice_id: number; month: string;
     property_id: number; resident_id: number; resident: string; phone: string; bed: string; property: string; address: string | null;
     owner: string; business: string | null; total: number; paid: number;
@@ -22,9 +22,9 @@ export default async function Receipt({ params }: { params: Promise<{ id: string
     Number(id),
   );
   if (!p) notFound();
-  const allowed = u.role === "resident" ? p.resident_id === u.id : accessiblePropertyIds(u).includes(p.property_id);
+  const allowed = u.role === "resident" ? p.resident_id === u.id : (await accessiblePropertyIds(u)).includes(p.property_id);
   if (!allowed) notFound();
-  const items = all<{ label: string; amount: number }>("SELECT label, amount FROM invoice_items WHERE invoice_id = ? ORDER BY id", p.invoice_id);
+  const items = await all<{ label: string; amount: number }>("SELECT label, amount FROM invoice_items WHERE invoice_id = ? ORDER BY id", p.invoice_id);
 
   return (
     <main className="mx-auto max-w-lg px-4 py-6">

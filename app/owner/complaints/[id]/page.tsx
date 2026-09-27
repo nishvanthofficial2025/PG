@@ -18,12 +18,12 @@ export default async function Complaint({ params, searchParams }: { params: Prom
   const { id } = await params;
   const sp = await searchParams;
   const u = await requireStaff();
-  const c = get<{ id: number; property_id: number; resident_id: number; category: string; description: string; status: string; priority: string; created_at: string; resolved_at: string | null; rating: number | null; photo_file_id: string | null; assigned_to: number | null; name: string; phone: string; room: string | null; property: string }>(
+  const c = await get<{ id: number; property_id: number; resident_id: number; category: string; description: string; status: string; priority: string; created_at: string; resolved_at: string | null; rating: number | null; photo_file_id: string | null; assigned_to: number | null; name: string; phone: string; room: string | null; property: string }>(
     `SELECT c.*, u.name, u.phone, r.number room, p.name property FROM complaints c JOIN users u ON u.id = c.resident_id LEFT JOIN rooms r ON r.id = c.room_id JOIN properties p ON p.id = c.property_id WHERE c.id = ?`,
     Number(id),
   );
   if (!c || !u.propertyIds.includes(c.property_id)) notFound();
-  const team = all<{ id: number; name: string; role: string }>(
+  const team = await all<{ id: number; name: string; role: string }>(
     `SELECT id, name, role FROM users WHERE (id = ? OR (owner_id = ? AND role IN ('manager','staff') AND status = 'active'
        AND EXISTS (SELECT 1 FROM manager_properties mp WHERE mp.user_id = users.id AND mp.property_id = ?)))`,
     u.owner_id,
@@ -61,7 +61,7 @@ export default async function Complaint({ params, searchParams }: { params: Prom
         <input type="hidden" name="back" value={back} />
         <div>
           <label className="label">Assigned to</label>
-          <select name="assigned_to" className="input" defaultValue={c.assigned_to ?? ""}>
+          <select key={`a${c.assigned_to}`} name="assigned_to" className="input" defaultValue={c.assigned_to ?? ""}>
             <option value="">Unassigned</option>
             {team.map((m) => (
               <option key={m.id} value={m.id}>
@@ -72,7 +72,7 @@ export default async function Complaint({ params, searchParams }: { params: Prom
         </div>
         <div>
           <label className="label">Priority</label>
-          <select name="priority" className="input" defaultValue={c.priority}>
+          <select key={`p${c.priority}`} name="priority" className="input" defaultValue={c.priority}>
             <option value="low">Low</option>
             <option value="normal">Normal</option>
             <option value="high">High</option>

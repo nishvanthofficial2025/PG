@@ -10,7 +10,7 @@ export default async function Beds({ searchParams }: { searchParams: Promise<{ s
   const u = await requireStaff();
   const { ids } = await scopeIds(u);
   const valid = status && status in BED_STATUS ? status : undefined;
-  const counts = bedCounts(ids);
+  const counts = await bedCounts(ids);
   return (
     <>
       <PageHeader

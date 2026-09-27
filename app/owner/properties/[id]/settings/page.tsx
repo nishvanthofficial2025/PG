@@ -16,7 +16,7 @@ export default async function PropertySettings({ params, searchParams }: { param
   const sp = await searchParams;
   const u = await requireOwner();
   if (!u.propertyIds.includes(Number(id))) notFound();
-  const p = get<P>("SELECT * FROM properties WHERE id = ?", Number(id))!;
+  const p = (await get<P>("SELECT * FROM properties WHERE id = ?", Number(id)))!;
   return (
     <div className="mx-auto max-w-xl">
       <PageHeader title="Property settings" subtitle={p.name} back={`/owner/properties/${p.id}`} />

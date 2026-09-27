@@ -1,6 +1,6 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { get } from "@/lib/db";
+import { get, demoMode } from "@/lib/db";
 import { currentUser } from "@/lib/auth";
 import { Submit } from "@/components/client";
 import { Flash } from "@/components/ui";
@@ -17,8 +17,8 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
   if (await currentUser()) redirect("/");
   const phone = (await cookies()).get("se_login_phone")?.value;
   const otpStep = sp.step === "otp" && phone;
-  const dev = process.env.NODE_ENV !== "production";
-  const devCode = otpStep && dev ? get<{ code: string }>("SELECT code FROM otps WHERE phone = ?", phone)?.code : null;
+  const dev = demoMode();
+  const devCode = otpStep && dev ? (await get<{ code: string }>("SELECT code FROM otps WHERE phone = ?", phone))?.code : null;
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-5 py-10">
@@ -53,7 +53,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<{ 
           </div>
           {devCode && (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Dev mode — your OTP is <b className="font-mono">{devCode}</b>
+              Demo mode — your OTP is <b className="font-mono">{devCode}</b>
             </p>
           )}
           <Submit>Verify &amp; continue</Submit>

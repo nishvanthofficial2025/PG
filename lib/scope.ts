@@ -15,6 +15,6 @@ export async function scopeIds(u: Staff): Promise<{ ids: number[]; selected: str
   return { ids: u.propertyIds, selected: "all" };
 }
 
-export function propertyList(ids: number[]) {
-  return all<{ id: number; name: string }>(`SELECT id, name FROM properties WHERE id IN (${inList(ids)}) ORDER BY id`, ...ids);
+export async function propertyList(ids: number[]) {
+  return await all<{ id: number; name: string }>(`SELECT id, name FROM properties WHERE id IN (${inList(ids)}) ORDER BY id`, ...ids);
 }

@@ -9,8 +9,8 @@ import { postNoticeAction, deleteNoticeAction, togglePinAction } from "../action
 export default async function Notices({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   const sp = await searchParams;
   const u = await requireStaff();
-  const props = propertyList(u.propertyIds);
-  const notices = all<{ id: number; title: string; body: string; pinned: number; created_at: string; property: string | null; author: string }>(
+  const props = await propertyList(u.propertyIds);
+  const notices = await all<{ id: number; title: string; body: string; pinned: number; created_at: string; property: string | null; author: string }>(
     `SELECT n.id, n.title, n.body, n.pinned, n.created_at, p.name property, a.name author FROM notices n LEFT JOIN properties p ON p.id = n.property_id JOIN users a ON a.id = n.created_by
      WHERE n.owner_id = ? AND (n.property_id IS NULL OR n.property_id IN (${inList(u.propertyIds)})) ORDER BY n.pinned DESC, n.created_at DESC`,
     u.owner_id,

@@ -16,7 +16,7 @@ export default async function Complaints({ searchParams }: { searchParams: Promi
   const u = await requireStaff();
   const { ids } = await scopeIds(u);
   const tab = TABS.find((t) => t.key === sp.tab) ?? TABS[0];
-  const rows = all<{ id: number; category: string; description: string; status: string; priority: string; created_at: string; name: string; room: string | null; property: string; assignee: string | null }>(
+  const rows = await all<{ id: number; category: string; description: string; status: string; priority: string; created_at: string; name: string; room: string | null; property: string; assignee: string | null }>(
     `SELECT c.id, c.category, c.description, c.status, c.priority, c.created_at, u.name, r.number room, p.name property, a.name assignee
      FROM complaints c JOIN users u ON u.id = c.resident_id LEFT JOIN rooms r ON r.id = c.room_id JOIN properties p ON p.id = c.property_id LEFT JOIN users a ON a.id = c.assigned_to
      WHERE ${tab.where} AND c.property_id IN (${inList(ids)}) ORDER BY c.created_at ${tab.key === "open" ? "ASC" : "DESC"} LIMIT 200`,

@@ -12,7 +12,7 @@ export default async function Pay({ params, searchParams }: { params: Promise<{ 
   const { id } = await params;
   const sp = await searchParams;
   const u = await requireResident();
-  const inv = get<{ id: number; month: string; total: number; paid: number; property: string }>(
+  const inv = await get<{ id: number; month: string; total: number; paid: number; property: string }>(
     "SELECT i.id, i.month, i.total, i.paid, p.name property FROM invoices i JOIN stays s ON s.id = i.stay_id JOIN properties p ON p.id = i.property_id WHERE i.id = ? AND s.resident_id = ?",
     Number(id),
     u.id,

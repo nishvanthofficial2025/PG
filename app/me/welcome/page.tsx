@@ -11,7 +11,7 @@ export default async function Welcome({ searchParams }: { searchParams: Promise<
   const sp = await searchParams;
   const u = await requireResident();
   if (u.status !== "invited") redirect("/me");
-  const stay = myStay(u.id);
+  const stay = await myStay(u.id);
   return (
     <>
       <h1 className="text-2xl font-bold">Welcome, {u.name.split(" ")[0]}!</h1>

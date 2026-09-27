@@ -7,17 +7,17 @@ import { CopyButton } from "@/components/client";
 
 export default async function Info() {
   const u = await requireResident();
-  const stay = myStay(u.id);
+  const stay = await myStay(u.id);
   if (!stay) return <div className="card mt-10 text-center">No bed assigned yet.</div>;
   const roommates = stay.show_roommates
-    ? all<{ name: string; bed: string }>(
+    ? await all<{ name: string; bed: string }>(
         `SELECT u.name, b.label bed FROM stays s JOIN users u ON u.id = s.resident_id JOIN beds b ON b.id = s.bed_id
          WHERE b.room_id = ? AND s.status IN ('active','notice') AND s.resident_id != ?`,
         stay.room_id,
         u.id,
       )
     : [];
-  const notices = all<{ id: number; title: string; body: string; pinned: number; created_at: string }>(
+  const notices = await all<{ id: number; title: string; body: string; pinned: number; created_at: string }>(
     "SELECT * FROM notices WHERE owner_id = ? AND (property_id IS NULL OR property_id = ?) ORDER BY pinned DESC, created_at DESC LIMIT 20",
     stay.owner_id,
     stay.property_id,

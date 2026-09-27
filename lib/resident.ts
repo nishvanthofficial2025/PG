@@ -30,8 +30,8 @@ export type MyStay = {
 };
 
 /** The resident's current stay (or the most recent one if they have moved out). */
-export function myStay(userId: number): MyStay | undefined {
-  return get<MyStay>(
+export async function myStay(userId: number): Promise<MyStay | undefined> {
+  return await get<MyStay>(
     `SELECT s.*, b.label bed, b.room_id, r.number room, p.name property, p.address, p.rules, p.wifi_name, p.wifi_password, p.contact_phone, p.notice_days, p.show_roommates,
        o.name owner_name, o.phone owner_phone
      FROM stays s JOIN beds b ON b.id = s.bed_id JOIN rooms r ON r.id = b.room_id JOIN properties p ON p.id = s.property_id JOIN users o ON o.id = p.owner_id

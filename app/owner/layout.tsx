@@ -7,7 +7,7 @@ import { BottomNav, SideNav, ScopeSwitcher } from "./nav";
 export default async function OwnerLayout({ children }: { children: React.ReactNode }) {
   const u = await requireStaff();
   const { selected } = await scopeIds(u);
-  const open = get<{ n: number }>(`SELECT COUNT(*) n FROM complaints WHERE status IN ('open','in_progress') AND property_id IN (${inList(u.propertyIds)})`, ...u.propertyIds)!.n;
+  const open = (await get<{ n: number }>(`SELECT COUNT(*) n FROM complaints WHERE status IN ('open','in_progress') AND property_id IN (${inList(u.propertyIds)})`, ...u.propertyIds))!.n;
   return (
     <div className="pb-24 md:pb-10">
       <header className="no-print sticky top-0 z-10 border-b border-stone-200 bg-white/95 backdrop-blur">
@@ -17,7 +17,7 @@ export default async function OwnerLayout({ children }: { children: React.ReactN
             <span className="hidden sm:inline">StayEasy</span>
           </Link>
           <SideNav openComplaints={open} />
-          <ScopeSwitcher value={selected} options={propertyList(u.propertyIds)} />
+          <ScopeSwitcher value={selected} options={await propertyList(u.propertyIds)} />
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-5">{children}</main>

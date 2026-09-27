@@ -5,15 +5,15 @@ Mobile-first web app for PG owners, managers and residents. This first version c
 
 ## Run it
 
-Requires Node **22.13+** (uses the built-in `node:sqlite` — no database server to install).
+Requires Node **22**. Locally the app uses **PGlite** (Postgres compiled to WebAssembly, stored in `./data/pglite`) — no database server to install. In production set `DATABASE_URL` (e.g. Neon) and it uses a normal Postgres connection pool.
 
 ```bash
 npm install
 npm run dev          # http://localhost:3000
 ```
 
-On first request the app creates `data/stayeasy.db` and seeds demo data. OTPs are shown on screen
-in dev (and logged to the console). Demo logins:
+On first request the app creates the schema and, in dev or when `DEMO_MODE=1`, seeds demo data and
+shows OTPs on screen (they're also logged to the console). Demo logins:
 
 | Role     | Name   | Phone      | Sees                              |
 |----------|--------|------------|-----------------------------------|
@@ -50,6 +50,16 @@ Any other number → new owner sign-up → property setup wizard.
 is scoped by `owner_id`; KYC/bill files live outside `public/` and are served only through an
 access-checked route; httpOnly session cookies; OTP attempts limited.
 
+## Deploying (Vercel)
+
+1. Import the repo in Vercel (or `vercel link`).
+2. Add a Postgres database — Vercel → Storage → **Neon** — which sets `DATABASE_URL`.
+3. Optional: `DEMO_MODE=1` to seed demo data and show OTPs on screen. **Anyone can then log in as
+   any number** — use it only for demos, never with real residents' data. Remove it once an SMS
+   provider is wired into `lib/notify.ts`.
+
+The schema is created automatically on the first request.
+
 ## Stubbed for v1 — where to plug in the real thing
 
 | Area              | v1 behaviour                                  | Replace in                          |
@@ -58,9 +68,8 @@ access-checked route; httpOnly session cookies; OTP attempts limited.
 | WhatsApp/SMS/push | Stored as in-app notifications + console log  | `lib/notify.ts` → `notify`          |
 | Payment gateway   | Simulated "test mode" checkout                | `app/me/actions.ts` → `payOnlineAction` (Razorpay order + webhook) |
 | PDFs              | Print-friendly pages → browser "Save as PDF"  | server-side PDF if needed           |
-| File storage      | Private local folder `data/uploads`           | `lib/files.ts` → S3/Supabase private bucket + signed URLs |
 | Scheduled jobs    | "Generate invoices" / "Remind" buttons        | cron calling `generateInvoices()` on billing day + reminder schedule |
-| Database          | SQLite (`node:sqlite`)                        | port `SCHEMA` in `lib/db.ts` to Postgres |
+| File storage size | Uploads stored in Postgres (`files.data`), 4 MB max | S3/Supabase bucket when volume grows |
 
 ## Not yet built (P1/P2 in the PRD)
 
@@ -70,7 +79,7 @@ reports beyond CSV, Excel import of residents, Hindi, polls, service worker/offl
 ## Code map
 
 ```
-lib/db.ts          schema + SQLite helpers (multi-tenant by owner_id)
+lib/db.ts          schema + Postgres helpers (pg in prod, PGlite locally; multi-tenant by owner_id)
 lib/seed.ts        demo data
 lib/billing.ts     proration, invoices, payments, receipts
 lib/residents.ts   check-in, reserve, notice, settlement, room shift

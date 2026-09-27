@@ -11,14 +11,14 @@ export default async function BedPage({ params, searchParams }: { params: Promis
   const { id } = await params;
   const sp = await searchParams;
   const u = await requireStaff();
-  const bed = get<{ id: number; label: string; status: string; monthly_rent: number; property_id: number; property: string; room: string; sharing: number; is_ac: number; attached_bath: number }>(
+  const bed = await get<{ id: number; label: string; status: string; monthly_rent: number; property_id: number; property: string; room: string; sharing: number; is_ac: number; attached_bath: number }>(
     `SELECT b.*, p.name property, r.number room, r.sharing, r.is_ac, r.attached_bath
      FROM beds b JOIN properties p ON p.id = b.property_id JOIN rooms r ON r.id = b.room_id WHERE b.id = ?`,
     Number(id),
   );
   if (!bed || !u.propertyIds.includes(bed.property_id)) notFound();
 
-  const stays = all<{ id: number; resident_id: number; name: string; phone: string; status: string; move_in: string; move_out: string | null; rent: number }>(
+  const stays = await all<{ id: number; resident_id: number; name: string; phone: string; status: string; move_in: string; move_out: string | null; rent: number }>(
     `SELECT s.id, s.resident_id, u.name, u.phone, s.status, s.move_in, s.move_out, s.rent FROM stays s JOIN users u ON u.id = s.resident_id
      WHERE s.bed_id = ? AND s.status IN ('reserved','active','notice') ORDER BY s.move_in`,
     bed.id,

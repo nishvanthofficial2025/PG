@@ -11,7 +11,7 @@ export default async function Settlement({ params, searchParams }: { params: Pro
   const { id } = await params;
   const sp = await searchParams;
   const u = await requireStaff();
-  const s = get<{
+  const s = await get<{
     id: number; property_id: number; resident_id: number; move_in: string; move_out: string; notice_date: string | null; rent: number; deposit: number;
     deductions: number; deduction_note: string | null; refund_amount: number; refund_paid_at: string | null; name: string; phone: string; bed: string; property: string; address: string | null;
   }>(

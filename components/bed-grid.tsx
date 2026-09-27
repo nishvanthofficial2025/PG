@@ -6,12 +6,12 @@ import { BED_STATUS, inr, firstName } from "@/lib/format";
 type BedRow = { id: number; label: string; status: string; monthly_rent: number; room_id: number; resident: string | null };
 
 /** Colour-coded bed grid grouped Property → Floor → Room. */
-export function BedGrid({ propertyIds, status }: { propertyIds: number[]; status?: string }) {
+export async function BedGrid({ propertyIds, status }: { propertyIds: number[]; status?: string }) {
   const q = inList(propertyIds);
-  const props = all<{ id: number; name: string }>(`SELECT id, name FROM properties WHERE id IN (${q}) ORDER BY id`, ...propertyIds);
-  const floors = all<{ id: number; property_id: number; name: string }>(`SELECT id, property_id, name FROM floors WHERE property_id IN (${q}) ORDER BY sort, id`, ...propertyIds);
-  const rooms = all<{ id: number; floor_id: number; number: string; sharing: number; is_ac: number; attached_bath: number }>(`SELECT * FROM rooms WHERE property_id IN (${q}) ORDER BY number`, ...propertyIds);
-  const beds = all<BedRow>(
+  const props = await all<{ id: number; name: string }>(`SELECT id, name FROM properties WHERE id IN (${q}) ORDER BY id`, ...propertyIds);
+  const floors = await all<{ id: number; property_id: number; name: string }>(`SELECT id, property_id, name FROM floors WHERE property_id IN (${q}) ORDER BY sort, id`, ...propertyIds);
+  const rooms = await all<{ id: number; floor_id: number; number: string; sharing: number; is_ac: number; attached_bath: number }>(`SELECT * FROM rooms WHERE property_id IN (${q}) ORDER BY number`, ...propertyIds);
+  const beds = await all<BedRow>(
     `SELECT b.id, b.label, b.status, b.monthly_rent, b.room_id,
        (SELECT u.name FROM stays s JOIN users u ON u.id = s.resident_id WHERE s.bed_id = b.id AND s.status IN ('active','notice') LIMIT 1) resident
      FROM beds b WHERE b.property_id IN (${q}) ORDER BY b.label`,
@@ -90,11 +90,11 @@ export function BedLegend({ counts, active, base }: { counts: Record<string, num
   );
 }
 
-export function bedCounts(propertyIds: number[]): Record<string, number> {
-  const rows = all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM beds WHERE property_id IN (${inList(propertyIds)}) GROUP BY status`, ...propertyIds);
+export async function bedCounts(propertyIds: number[]): Promise<Record<string, number>> {
+  const rows = await all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM beds WHERE property_id IN (${inList(propertyIds)}) GROUP BY status`, ...propertyIds);
   return Object.fromEntries(rows.map((r) => [r.status, r.n]));
 }
 
-export function propertyName(id: number) {
-  return get<{ name: string }>("SELECT name FROM properties WHERE id = ?", id)?.name;
+export async function propertyName(id: number) {
+  return (await get<{ name: string }>("SELECT name FROM properties WHERE id = ?", id))?.name;
 }

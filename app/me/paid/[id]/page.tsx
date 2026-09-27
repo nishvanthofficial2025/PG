@@ -7,7 +7,7 @@ import { inr, fmtMonth } from "@/lib/format";
 export default async function Paid({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const u = await requireResident();
-  const p = get<{ id: number; amount: number; receipt_no: string; month: string; reference: string }>(
+  const p = await get<{ id: number; amount: number; receipt_no: string; month: string; reference: string }>(
     "SELECT p.id, p.amount, p.receipt_no, p.reference, i.month FROM payments p JOIN invoices i ON i.id = p.invoice_id JOIN stays s ON s.id = i.stay_id WHERE p.id = ? AND s.resident_id = ?",
     Number(id),
     u.id,

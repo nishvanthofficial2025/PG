@@ -10,7 +10,7 @@ const LABELS: Record<string, string> = { electrical: "⚡ Electrical", plumbing:
 export default async function MyComplaints({ searchParams }: { searchParams: Promise<{ ok?: string; err?: string }> }) {
   const sp = await searchParams;
   const u = await requireResident();
-  const rows = all<{ id: number; category: string; description: string; status: string; created_at: string; resolved_at: string | null; rating: number | null; photo_file_id: string | null }>(
+  const rows = await all<{ id: number; category: string; description: string; status: string; created_at: string; resolved_at: string | null; rating: number | null; photo_file_id: string | null }>(
     "SELECT * FROM complaints WHERE resident_id = ? ORDER BY created_at DESC",
     u.id,
   );

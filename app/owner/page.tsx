@@ -29,23 +29,23 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     );
   }
 
-  const beds = all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM beds WHERE property_id IN (${q}) GROUP BY status`, ...ids);
+  const beds = await all<{ status: string; n: number }>(`SELECT status, COUNT(*) n FROM beds WHERE property_id IN (${q}) GROUP BY status`, ...ids);
   const bedCount = (s: string) => beds.find((b) => b.status === s)?.n ?? 0;
   const totalBeds = beds.reduce((a, b) => a + b.n, 0);
 
-  const rent = get<{ expected: number; collected: number; overdue: number; unpaidCount: number }>(
+  const rent = (await get<{ expected: number; collected: number; overdue: number; unpaidCount: number }>(
     `SELECT COALESCE(SUM(total),0) expected, COALESCE(SUM(paid),0) collected,
        COALESCE(SUM(CASE WHEN status != 'paid' AND due_date < ? THEN total - paid END),0) overdue,
-       COUNT(CASE WHEN status != 'paid' THEN 1 END) unpaidCount
+       COUNT(CASE WHEN status != 'paid' THEN 1 END) "unpaidCount"
      FROM invoices WHERE month = ? AND property_id IN (${q})`,
     t,
     month,
     ...ids,
-  )!;
+  ))!;
   const pending = rent.expected - rent.collected;
   const pct = rent.expected ? Math.round((rent.collected / rent.expected) * 100) : 0;
 
-  const defaulters = all<{ invoice_id: number; resident_id: number; name: string; bed: string; due: number; due_date: string; property: string }>(
+  const defaulters = await all<{ invoice_id: number; resident_id: number; name: string; bed: string; due: number; due_date: string; property: string }>(
     `SELECT i.id invoice_id, u.id resident_id, u.name, b.label bed, i.total - i.paid due, i.due_date, p.name property
      FROM invoices i JOIN stays s ON s.id = i.stay_id JOIN users u ON u.id = s.resident_id JOIN beds b ON b.id = s.bed_id JOIN properties p ON p.id = i.property_id
      WHERE i.month = ? AND i.status != 'paid' AND i.property_id IN (${q})
@@ -53,9 +53,9 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     month,
     ...ids,
   );
-  const proofs = get<{ n: number }>(`SELECT COUNT(*) n FROM payments p JOIN invoices i ON i.id = p.invoice_id WHERE p.status = 'pending' AND i.property_id IN (${q})`, ...ids)!.n;
+  const proofs = (await get<{ n: number }>(`SELECT COUNT(*) n FROM payments p JOIN invoices i ON i.id = p.invoice_id WHERE p.status = 'pending' AND i.property_id IN (${q})`, ...ids))!.n;
 
-  const complaints = all<{ id: number; category: string; description: string; created_at: string; room: string | null }>(
+  const complaints = await all<{ id: number; category: string; description: string; created_at: string; room: string | null }>(
     `SELECT c.id, c.category, c.description, c.created_at, r.number room FROM complaints c LEFT JOIN rooms r ON r.id = c.room_id
      WHERE c.status IN ('open','in_progress') AND c.property_id IN (${q}) ORDER BY c.created_at`,
     ...ids,
@@ -63,13 +63,13 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
   const overdueComplaints = complaints.filter((c) => hoursSince(c.created_at) > 48).length;
 
   const week = addDays(t, 7);
-  const checkIns = all<{ resident_id: number; name: string; bed: string; move_in: string }>(
+  const checkIns = await all<{ resident_id: number; name: string; bed: string; move_in: string }>(
     `SELECT s.resident_id, u.name, b.label bed, s.move_in FROM stays s JOIN users u ON u.id = s.resident_id JOIN beds b ON b.id = s.bed_id
      WHERE s.status = 'reserved' AND s.move_in <= ? AND s.property_id IN (${q}) ORDER BY s.move_in`,
     week,
     ...ids,
   );
-  const checkOuts = all<{ resident_id: number; name: string; bed: string; move_out: string }>(
+  const checkOuts = await all<{ resident_id: number; name: string; bed: string; move_out: string }>(
     `SELECT s.resident_id, u.name, b.label bed, s.move_out FROM stays s JOIN users u ON u.id = s.resident_id JOIN beds b ON b.id = s.bed_id
      WHERE s.status = 'notice' AND s.move_out <= ? AND s.property_id IN (${q}) ORDER BY s.move_out`,
     week,

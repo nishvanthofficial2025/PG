@@ -20,9 +20,9 @@ export default async function Resident({ params, searchParams }: { params: Promi
   const sp = await searchParams;
   const u = await requireStaff();
   const rid = Number(id);
-  const r = get<{ id: number; name: string; phone: string; email: string | null; status: string }>("SELECT id, name, phone, email, status FROM users WHERE id = ? AND role = 'resident' AND owner_id = ?", rid, u.owner_id);
+  const r = await get<{ id: number; name: string; phone: string; email: string | null; status: string }>("SELECT id, name, phone, email, status FROM users WHERE id = ? AND role = 'resident' AND owner_id = ?", rid, u.owner_id);
   if (!r) notFound();
-  const stays = all<{ id: number; status: string; bed_id: number; bed: string; room: string; property_id: number; property: string; move_in: string; move_out: string | null; rent: number; deposit: number; notice_date: string | null; refund_amount: number | null }>(
+  const stays = await all<{ id: number; status: string; bed_id: number; bed: string; room: string; property_id: number; property: string; move_in: string; move_out: string | null; rent: number; deposit: number; notice_date: string | null; refund_amount: number | null }>(
     `SELECT s.*, b.label bed, rm.number room, p.name property FROM stays s JOIN beds b ON b.id = s.bed_id JOIN rooms rm ON rm.id = b.room_id JOIN properties p ON p.id = s.property_id
      WHERE s.resident_id = ? AND s.property_id IN (${inList(u.propertyIds)}) ORDER BY s.id DESC`,
     rid,
@@ -31,28 +31,28 @@ export default async function Resident({ params, searchParams }: { params: Promi
   if (!stays.length) notFound();
   const stay = stays[0];
   const past = stays.slice(1);
-  const profile = get<{ emergency_name: string | null; emergency_phone: string | null; occupation: string | null; college_company: string | null; permanent_address: string | null; rules_accepted_at: string | null }>(
+  const profile = await get<{ emergency_name: string | null; emergency_phone: string | null; occupation: string | null; college_company: string | null; permanent_address: string | null; rules_accepted_at: string | null }>(
     "SELECT * FROM resident_profiles WHERE user_id = ?",
     rid,
   );
   const stayIds = stays.map((s) => s.id);
-  const invoices = all<{ id: number; month: string; total: number; paid: number; status: string; due_date: string }>(
+  const invoices = await all<{ id: number; month: string; total: number; paid: number; status: string; due_date: string }>(
     `SELECT id, month, total, paid, status, due_date FROM invoices WHERE stay_id IN (${inList(stayIds)}) ORDER BY month DESC`,
     ...stayIds,
   );
-  const items = all<{ invoice_id: number; label: string; amount: number }>(
+  const items = await all<{ invoice_id: number; label: string; amount: number }>(
     `SELECT invoice_id, label, amount FROM invoice_items WHERE invoice_id IN (${inList(invoices.map((i) => i.id))}) ORDER BY id`,
     ...invoices.map((i) => i.id),
   );
-  const payments = all<{ id: number; amount: number; mode: string; paid_at: string; receipt_no: string | null; status: string; month: string }>(
+  const payments = await all<{ id: number; amount: number; mode: string; paid_at: string; receipt_no: string | null; status: string; month: string }>(
     `SELECT p.id, p.amount, p.mode, p.paid_at, p.receipt_no, p.status, i.month FROM payments p JOIN invoices i ON i.id = p.invoice_id
      WHERE i.stay_id IN (${inList(stayIds)}) ORDER BY p.paid_at DESC`,
     ...stayIds,
   );
-  const docs = all<{ id: number; type: string; file_id: string; verified: number; created_at: string }>("SELECT * FROM documents WHERE resident_id = ? ORDER BY id DESC", rid);
-  const dues = stayDues(stay.id);
+  const docs = await all<{ id: number; type: string; file_id: string; verified: number; created_at: string }>("SELECT * FROM documents WHERE resident_id = ? ORDER BY id DESC", rid);
+  const dues = await stayDues(stay.id);
   const unpaid = invoices.filter((i) => i.status !== "paid");
-  const vacantBeds = stay.status === "active" ? all<{ id: number; label: string; monthly_rent: number; property: string }>(
+  const vacantBeds = stay.status === "active" ? await all<{ id: number; label: string; monthly_rent: number; property: string }>(
     `SELECT b.id, b.label, b.monthly_rent, p.name property FROM beds b JOIN properties p ON p.id = b.property_id WHERE b.status = 'vacant' AND b.property_id IN (${inList(u.propertyIds)}) ORDER BY p.id, b.label`,
     ...u.propertyIds,
   ) : [];

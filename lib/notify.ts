@@ -6,8 +6,8 @@ import { run } from "./db";
  * logged to the server console. Real channels (WhatsApp via Interakt/Gupshup,
  * SMS via MSG91, email via Resend, web push) plug in here.
  */
-export function notify(userId: number, title: string, body?: string) {
-  run("INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)", userId, title, body ?? null);
+export async function notify(userId: number, title: string, body?: string) {
+  await run("INSERT INTO notifications (user_id, title, body) VALUES (?, ?, ?)", userId, title, body ?? null);
   if (process.env.NODE_ENV !== "production") console.log(`[notify] user=${userId} ${title} — ${body ?? ""}`);
 }
 

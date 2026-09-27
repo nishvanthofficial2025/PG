@@ -13,13 +13,13 @@ export default async function More({ searchParams }: { searchParams: Promise<{ o
   const u = await requireStaff();
   const isOwner = u.role === "owner";
   const managers = isOwner
-    ? all<{ id: number; name: string; phone: string; props: string | null }>(
-        `SELECT u.id, u.name, u.phone, (SELECT GROUP_CONCAT(p.name, ', ') FROM manager_properties mp JOIN properties p ON p.id = mp.property_id WHERE mp.user_id = u.id) props
+    ? await all<{ id: number; name: string; phone: string; props: string | null }>(
+        `SELECT u.id, u.name, u.phone, (SELECT STRING_AGG(p.name, ', ') FROM manager_properties mp JOIN properties p ON p.id = mp.property_id WHERE mp.user_id = u.id) props
          FROM users u WHERE u.owner_id = ? AND u.role = 'manager' AND u.status != 'disabled' ORDER BY u.name`,
         u.id,
       )
     : [];
-  const activity = all<{ action: string; detail: string | null; created_at: string; who: string }>(
+  const activity = await all<{ action: string; detail: string | null; created_at: string; who: string }>(
     `SELECT a.action, a.detail, a.created_at, u.name who FROM activity_log a JOIN users u ON u.id = a.user_id
      WHERE a.owner_id = ? ${isOwner ? "" : "AND a.user_id = ?"} ORDER BY a.id DESC LIMIT 25`,
     u.owner_id,
@@ -74,7 +74,7 @@ export default async function More({ searchParams }: { searchParams: Promise<{ o
                 <input name="name" className="input" placeholder="Name" required />
                 <input name="phone" className="input" placeholder="Mobile number" inputMode="numeric" required />
                 <div className="space-y-1">
-                  {propertyList(u.propertyIds).map((p) => (
+                  {(await propertyList(u.propertyIds)).map((p) => (
                     <label key={p.id} className="flex items-center gap-2 text-sm">
                       <input type="checkbox" name="property_ids" value={p.id} className="h-5 w-5" /> {p.name}
                     </label>

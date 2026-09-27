@@ -5,9 +5,9 @@ import { PageHeader, Empty } from "@/components/ui";
 
 export default async function Properties() {
   const u = await requireStaff();
-  const rows = all<{ id: number; name: string; address: string | null; type: string; beds: number; occupied: number; vacant: number }>(
+  const rows = await all<{ id: number; name: string; address: string | null; type: string; beds: number; occupied: number; vacant: number }>(
     `SELECT p.id, p.name, p.address, p.type, COUNT(b.id) beds,
-       SUM(b.status IN ('occupied','notice')) occupied, SUM(b.status = 'vacant') vacant
+       COUNT(CASE WHEN b.status IN ('occupied','notice') THEN 1 END) occupied, COUNT(CASE WHEN b.status = 'vacant' THEN 1 END) vacant
      FROM properties p LEFT JOIN beds b ON b.property_id = p.id
      WHERE p.id IN (${inList(u.propertyIds)}) GROUP BY p.id ORDER BY p.id`,
     ...u.propertyIds,

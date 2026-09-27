@@ -19,7 +19,7 @@ export default async function Rent({ searchParams }: { searchParams: Promise<{ m
   const filter = (FILTERS as readonly string[]).includes(sp.filter ?? "") ? sp.filter! : "all";
   const t = today();
 
-  const invoices = all<{ id: number; resident_id: number; name: string; bed: string; property: string; total: number; paid: number; status: string; due_date: string }>(
+  const invoices = await all<{ id: number; resident_id: number; name: string; bed: string; property: string; total: number; paid: number; status: string; due_date: string }>(
     `SELECT i.id, s.resident_id, u.name, b.label bed, p.name property, i.total, i.paid, i.status, i.due_date
      FROM invoices i JOIN stays s ON s.id = i.stay_id JOIN users u ON u.id = s.resident_id JOIN beds b ON b.id = s.bed_id JOIN properties p ON p.id = i.property_id
      WHERE i.month = ? AND i.property_id IN (${q}) ORDER BY (i.status = 'paid'), i.due_date, b.label`,
@@ -31,16 +31,16 @@ export default async function Rent({ searchParams }: { searchParams: Promise<{ m
   const overdueRows = invoices.filter((i) => i.status !== "paid" && i.due_date < t);
   const overdue = overdueRows.reduce((a, i) => a + i.total - i.paid, 0);
   const shown = invoices.filter((i) => (filter === "all" ? true : filter === "paid" ? i.status === "paid" : filter === "unpaid" ? i.status !== "paid" : i.status !== "paid" && i.due_date < t));
-  const activeStays = get<{ n: number }>(`SELECT COUNT(*) n FROM stays WHERE status IN ('active','notice') AND property_id IN (${q})`, ...ids)!.n;
+  const activeStays = (await get<{ n: number }>(`SELECT COUNT(*) n FROM stays WHERE status IN ('active','notice') AND property_id IN (${q})`, ...ids))!.n;
   const missing = Math.max(0, activeStays - invoices.length);
 
-  const proofs = all<{ id: number; amount: number; mode: string; reference: string | null; proof_file_id: string | null; paid_at: string; name: string; bed: string; month: string }>(
+  const proofs = await all<{ id: number; amount: number; mode: string; reference: string | null; proof_file_id: string | null; paid_at: string; name: string; bed: string; month: string }>(
     `SELECT p.id, p.amount, p.mode, p.reference, p.proof_file_id, p.paid_at, u.name, b.label bed, i.month
      FROM payments p JOIN invoices i ON i.id = p.invoice_id JOIN stays s ON s.id = i.stay_id JOIN users u ON u.id = s.resident_id JOIN beds b ON b.id = s.bed_id
      WHERE p.status = 'pending' AND i.property_id IN (${q}) ORDER BY p.paid_at`,
     ...ids,
   );
-  const rooms = all<{ id: number; number: string; property: string }>(`SELECT r.id, r.number, p.name property FROM rooms r JOIN properties p ON p.id = r.property_id WHERE r.property_id IN (${q}) ORDER BY p.id, r.number`, ...ids);
+  const rooms = await all<{ id: number; number: string; property: string }>(`SELECT r.id, r.number, p.name property FROM rooms r JOIN properties p ON p.id = r.property_id WHERE r.property_id IN (${q}) ORDER BY p.id, r.number`, ...ids);
 
   return (
     <>

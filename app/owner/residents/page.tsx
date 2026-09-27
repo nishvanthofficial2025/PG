@@ -18,13 +18,13 @@ export default async function Residents({ searchParams }: { searchParams: Promis
   const { ids } = await scopeIds(u);
   const filter = FILTERS.find((f) => f.key === sp.f) ?? FILTERS[0];
   const q = (sp.q ?? "").trim();
-  const rows = all<{ id: number; name: string; phone: string; status: string; bed: string; property: string; dues: number; move_in: string; move_out: string | null; user_status: string }>(
+  const rows = await all<{ id: number; name: string; phone: string; status: string; bed: string; property: string; dues: number; move_in: string; move_out: string | null; user_status: string }>(
     `SELECT u.id, u.name, u.phone, u.status user_status, s.status, b.label bed, p.name property, s.move_in, s.move_out,
        (SELECT COALESCE(SUM(total - paid),0) FROM invoices i WHERE i.stay_id = s.id) dues
      FROM stays s JOIN users u ON u.id = s.resident_id JOIN beds b ON b.id = s.bed_id JOIN properties p ON p.id = s.property_id
      WHERE ${filter.where} AND s.property_id IN (${inList(ids)})
        AND s.id = (SELECT MAX(s2.id) FROM stays s2 WHERE s2.resident_id = u.id AND s2.status != 'shifted')
-       ${q ? "AND (u.name LIKE ? OR u.phone LIKE ? OR b.label LIKE ?)" : ""}
+       ${q ? "AND (u.name ILIKE ? OR u.phone ILIKE ? OR b.label ILIKE ?)" : ""}
      ORDER BY b.label`,
     ...ids,
     ...(q ? [`%${q}%`, `%${q}%`, `%${q}%`] : []),

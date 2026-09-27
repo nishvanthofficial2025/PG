@@ -12,9 +12,9 @@ export default async function Statement({ searchParams }: { searchParams: Promis
   const valid = (m?: string) => (m && /^\d{4}-\d{2}$/.test(m) ? m : undefined);
   const to = valid(sp.to) ?? thisMonth();
   const from = valid(sp.from) ?? addMonths(to, -11);
-  const stay = myStay(u.id);
-  const owner = stay ? get<{ name: string; business_name: string | null }>("SELECT name, business_name FROM users WHERE id = ?", stay.owner_id) : undefined;
-  const rows = all<{ month: string; amount: number; mode: string; paid_at: string; receipt_no: string; bed: string; property: string; address: string | null }>(
+  const stay = await myStay(u.id);
+  const owner = stay ? await get<{ name: string; business_name: string | null }>("SELECT name, business_name FROM users WHERE id = ?", stay.owner_id) : undefined;
+  const rows = await all<{ month: string; amount: number; mode: string; paid_at: string; receipt_no: string; bed: string; property: string; address: string | null }>(
     `SELECT i.month, p.amount, p.mode, p.paid_at, p.receipt_no, b.label bed, pr.name property, pr.address FROM payments p JOIN invoices i ON i.id = p.invoice_id
      JOIN stays s ON s.id = i.stay_id JOIN beds b ON b.id = s.bed_id JOIN properties pr ON pr.id = i.property_id
      WHERE s.resident_id = ? AND p.status = 'confirmed' AND i.month BETWEEN ? AND ? ORDER BY i.month, p.paid_at`,

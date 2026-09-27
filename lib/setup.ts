@@ -36,9 +36,9 @@ export function wizardFloors(opts: { floors: number; roomsPerFloor: number; shar
   return out;
 }
 
-export function createProperty(ownerId: number, userId: number, spec: PropertySpec): number {
-  return tx(() => {
-    const p = run(
+export async function createProperty(ownerId: number, userId: number, spec: PropertySpec): Promise<number> {
+  return await tx(async () => {
+    const p = await run(
       `INSERT INTO properties (owner_id, name, address, type, amenities, rules, wifi_name, wifi_password, contact_phone, billing_day, due_day, late_fee, notice_days)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ownerId,
@@ -55,19 +55,19 @@ export function createProperty(ownerId: number, userId: number, spec: PropertySp
       spec.late_fee,
       spec.notice_days,
     );
-    spec.floors.forEach((f, i) => addFloor(p.id, f, i));
-    logActivity(ownerId, userId, "create_property", "property", p.id, spec.name);
+    for (const [i, f] of spec.floors.entries()) await addFloor(p.id, f, i);
+    await logActivity(ownerId, userId, "create_property", "property", p.id, spec.name);
     return p.id;
   });
 }
 
-export function addFloor(propertyId: number, f: FloorSpec, sort: number) {
-  const fl = run("INSERT INTO floors (property_id, name, sort) VALUES (?, ?, ?)", propertyId, f.name, sort);
-  for (const r of f.rooms) addRoom(propertyId, fl.id, r);
+export async function addFloor(propertyId: number, f: FloorSpec, sort: number) {
+  const fl = await run("INSERT INTO floors (property_id, name, sort) VALUES (?, ?, ?)", propertyId, f.name, sort);
+  for (const r of f.rooms) await addRoom(propertyId, fl.id, r);
 }
 
-export function addRoom(propertyId: number, floorId: number, r: RoomSpec) {
-  const room = run(
+export async function addRoom(propertyId: number, floorId: number, r: RoomSpec) {
+  const room = await run(
     "INSERT INTO rooms (property_id, floor_id, number, sharing, is_ac, attached_bath) VALUES (?, ?, ?, ?, ?, ?)",
     propertyId,
     floorId,
@@ -78,6 +78,6 @@ export function addRoom(propertyId: number, floorId: number, r: RoomSpec) {
   );
   for (let b = 0; b < r.sharing; b++) {
     const label = r.sharing === 1 ? r.number : `${r.number}-${LETTERS[b]}`;
-    run("INSERT INTO beds (property_id, room_id, label, monthly_rent) VALUES (?, ?, ?, ?)", propertyId, room.id, label, r.rent);
+    await run("INSERT INTO beds (property_id, room_id, label, monthly_rent) VALUES (?, ?, ?, ?)", propertyId, room.id, label, r.rent);
   }
 }

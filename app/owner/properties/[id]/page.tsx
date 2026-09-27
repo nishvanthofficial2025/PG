@@ -14,8 +14,8 @@ export default async function PropertyPage({ params, searchParams }: { params: P
   const u = await requireStaff();
   const pid = Number(id);
   if (!u.propertyIds.includes(pid)) notFound();
-  const p = get<{ name: string; address: string | null }>("SELECT name, address FROM properties WHERE id = ?", pid)!;
-  const floors = all<{ name: string }>("SELECT name FROM floors WHERE property_id = ? ORDER BY sort, id", pid);
+  const p = (await get<{ name: string; address: string | null }>("SELECT name, address FROM properties WHERE id = ?", pid))!;
+  const floors = await all<{ name: string }>("SELECT name FROM floors WHERE property_id = ? ORDER BY sort, id", pid);
   const status = sp.status && sp.status in BED_STATUS ? sp.status : undefined;
 
   return (
@@ -33,7 +33,7 @@ export default async function PropertyPage({ params, searchParams }: { params: P
         }
       />
       <Flash sp={sp} />
-      <BedLegend counts={bedCounts([pid])} active={status} base={`/owner/properties/${pid}`} />
+      <BedLegend counts={await bedCounts([pid])} active={status} base={`/owner/properties/${pid}`} />
       <BedGrid propertyIds={[pid]} status={status} />
 
       {u.role === "owner" && (

@@ -10,22 +10,22 @@ export default async function ResidentHome({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const u = await requireResident();
   if (u.status === "invited") redirect("/me/welcome");
-  const stay = myStay(u.id);
+  const stay = await myStay(u.id);
   if (!stay) {
     return <div className="card mt-10 text-center">You don’t have a bed assigned yet. Please contact your PG owner.</div>;
   }
   const t = today();
 
-  const unpaid = all<{ id: number; month: string; total: number; paid: number; due_date: string }>(
+  const unpaid = await all<{ id: number; month: string; total: number; paid: number; due_date: string }>(
     `SELECT i.id, i.month, i.total, i.paid, i.due_date FROM invoices i JOIN stays s ON s.id = i.stay_id
      WHERE s.resident_id = ? AND i.status != 'paid' ORDER BY i.month`,
     u.id,
   );
-  const items = all<{ invoice_id: number; label: string; amount: number }>(
+  const items = await all<{ invoice_id: number; label: string; amount: number }>(
     `SELECT invoice_id, label, amount FROM invoice_items WHERE invoice_id IN (${unpaid.map(() => "?").join(",") || "NULL"}) ORDER BY id`,
     ...unpaid.map((i) => i.id),
   );
-  const pendingProof = all<{ amount: number }>(
+  const pendingProof = await all<{ amount: number }>(
     "SELECT p.amount FROM payments p JOIN invoices i ON i.id = p.invoice_id JOIN stays s ON s.id = i.stay_id WHERE s.resident_id = ? AND p.status = 'pending'",
     u.id,
   );
@@ -33,16 +33,16 @@ export default async function ResidentHome({ searchParams }: { searchParams: Pro
   const next = unpaid[0];
   const lateDays = next ? daysBetween(next.due_date, t) : 0;
 
-  const notices = all<{ id: number; title: string; body: string; pinned: number; created_at: string }>(
+  const notices = await all<{ id: number; title: string; body: string; pinned: number; created_at: string }>(
     `SELECT id, title, body, pinned, created_at FROM notices WHERE owner_id = ? AND (property_id IS NULL OR property_id = ?) ORDER BY pinned DESC, created_at DESC LIMIT 3`,
     stay.owner_id,
     stay.property_id,
   );
-  const complaints = all<{ id: number; category: string; status: string; created_at: string }>(
+  const complaints = await all<{ id: number; category: string; status: string; created_at: string }>(
     "SELECT id, category, status, created_at FROM complaints WHERE resident_id = ? AND status != 'closed' ORDER BY created_at DESC LIMIT 3",
     u.id,
   );
-  const alerts = all<{ title: string; body: string | null; created_at: string }>("SELECT title, body, created_at FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 4", u.id);
+  const alerts = await all<{ title: string; body: string | null; created_at: string }>("SELECT title, body, created_at FROM notifications WHERE user_id = ? ORDER BY id DESC LIMIT 4", u.id);
 
   return (
     <>
