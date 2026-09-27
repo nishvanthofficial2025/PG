@@ -12,8 +12,9 @@ export const OTP_COOKIE = "se_login_otp";
 export type PendingOtp = { p: string; h: string; a: number; c?: string };
 
 function secret(): string {
-  const s = process.env.SESSION_SECRET?.trim();
+  const s = process.env.SESSION_SECRET?.trim() || process.env.AUTH_SECRET?.trim() || process.env.NEXTAUTH_SECRET?.trim();
   if (s) return s;
+  // Never sign production cookies with a key that's public in the source.
   if (process.env.NODE_ENV === "production") throw new Error("SESSION_SECRET is not set");
   return "stayeasy-local-dev-secret";
 }

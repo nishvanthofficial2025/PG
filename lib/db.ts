@@ -279,9 +279,7 @@ async function pgliteDriver(): Promise<Driver> {
   };
 }
 
-async function init(): Promise<Driver> {
-  const url = connectionString();
-  const d = url ? await pgDriver(url) : await pgliteDriver();
+async function initializeDatabase(d: Driver) {
   // Schema + demo seed once, serialized across cold-starting instances by an advisory lock.
   await d.transaction(async (q) => {
     await q("SELECT pg_advisory_xact_lock(724001)", []);
@@ -289,7 +287,23 @@ async function init(): Promise<Driver> {
     const empty = Number((await q("SELECT COUNT(*) n FROM users", []))[0].n) === 0;
     if (empty && demoMode()) await txStore.run(q, () => seed());
   });
-  return d;
+}
+
+async function init(): Promise<Driver> {
+  const url = connectionString();
+  const preferred = url ? await pgDriver(url) : await pgliteDriver();
+
+  try {
+    await initializeDatabase(preferred);
+    return preferred;
+  } catch (err) {
+    // Only a demo deployment may swap in the throwaway database; a real one must fail loudly, not lose writes.
+    if (!url || !demoMode()) throw err;
+    console.error(`[db] DATABASE_URL connection failed; DEMO_MODE is on, so falling back to the local PGlite demo database (data will not persist). ${err instanceof Error ? err.message : String(err)}`);
+    const fallback = await pgliteDriver();
+    await initializeDatabase(fallback);
+    return fallback;
+  }
 }
 
 function driver(): Promise<Driver> {
